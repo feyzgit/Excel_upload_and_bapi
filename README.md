@@ -5,20 +5,20 @@ Program adı: BMC POWER TIMESHEET İSTATİSTİKSEL GÖSTERGE PROGRAMI
 “PYP öğesi” ve “Yüzde” 	olarak iki kolondan oluşan bir excelin yükleneceği program yazılacaktır,
 Dosya yolu ve Dönem/Yıl olan bir seçim ekranı olacak  
 Örnek Excel:
-PYP	Yüzde
-BP.010.01.01.12.06	1,71
-BP.010.01.03.00.06	9,83
-BP.010.01.01.14.06	2,56
-BP.010.01.05.01.06	23,50
-BP.010.01.04.01.06	5,98
-BP.010.01.05.02.06	2,14
-BP.010.01.05.05.06	31,62
-BP.010.01.05.03.06	5,56
-BP.010.01.01.00.06	11,54
-BP.010.01.01.00.06	1,71
-BP.010.01.01.07.06	3,85
+  PYP	             Yüzde
+ BP.010.01.01.12.06	1,71
+ BP.010.01.03.00.06	9,83
+ BP.010.01.01.14.06	2,56
+ BP.010.01.05.01.06	23,5
+ BP.010.01.04.01.06	5,98
+ BP.010.01.05.02.06	2,14
+ BP.010.01.05.05.06	31,62
+ BP.010.01.05.03.06	5,56
+ BP.010.01.01.00.06	11,54
+ BP.010.01.01.00.06	1,71
+ BP.010.01.01.07.06	3,85
 
-
+ 
 BAPI_ACC_STAT_KEY_FIG_POST bapisinde
 Username: Kayıt atan kullanıcı 
 CO_AREA: BM00
