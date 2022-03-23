@@ -4,6 +4,23 @@
 
 CLASS lcl_main IMPLEMENTATION.
 
+  METHOD at_selection_screen.
+    LOOP AT SCREEN.
+      IF screen-group1 = 'MD1' AND p_ch EQ abap_false.
+        screen-required = 2.
+        MODIFY SCREEN.
+      ENDIF.
+      IF  screen-group1 = 'MD1'.
+        IF p_ch EQ abap_false.
+          screen-input = 1.
+          ELSE.
+            screen-input = 0.
+        ENDIF.
+        MODIFY SCREEN.
+      ENDIF.
+    ENDLOOP.
+
+  ENDMETHOD.
   METHOD get_file_path.
 
     DATA : lv_subrc LIKE sy-subrc,
@@ -29,10 +46,29 @@ CLASS lcl_main IMPLEMENTATION.
   METHOD start.
 
     CREATE OBJECT lr_main.
-
-    lr_main->get_data( ).
-    lr_main->display( ).
-
+    IF p_ch IS NOT INITIAL.
+      DATA: ans TYPE c.
+      CALL FUNCTION 'POPUP_TO_CONFIRM'
+        EXPORTING
+          titlebar              = 'Ters Kayıt'
+          text_question         = 'Ters kayıt atılsın mı?'
+          text_button_1         = 'Evet'
+          icon_button_1         = 'ICON_CHECKED'
+          text_button_2         = 'Hayır'
+          icon_button_2         = 'ICON_CANCEL'
+          display_cancel_button = ' '
+          popup_type            = 'ICON_MESSAGE_ERROR'
+        IMPORTING
+          answer                = ans.
+      IF ans = 1.
+        lr_main->reverse( ).
+      ELSE.
+        RETURN.
+      ENDIF.
+    ELSE.
+      lr_main->get_data( ).
+      lr_main->display( ).
+    ENDIF.
   ENDMETHOD.
   METHOD display.
 
@@ -121,9 +157,6 @@ CLASS lcl_main IMPLEMENTATION.
           it_fieldcatalog    = gt_fc[]
           it_outtab          = alvtable[].
 
-
-
-
     ELSE.
 
       CALL METHOD grid->refresh_table_display
@@ -178,11 +211,16 @@ CLASS lcl_main IMPLEMENTATION.
   ENDMETHOD.
   METHOD get_data.
 
-    SELECT SINGLE COUNT(*) FROM zco_t_r016
+    DATA: lv_sayac TYPE int4.
+
+    SELECT COUNT(*) FROM zco_t_r016
       WHERE poper EQ p_poper
-        AND gjahr EQ p_gjahr.
-    IF sy-subrc IS INITIAL.
-      MESSAGE 'Bu dönem için önceden istatistiksel gösterge belgeleri kaydedildi!!!' TYPE 'E'.
+        AND gjahr EQ p_gjahr
+        AND ters_kayit EQ space.
+
+    IF sy-dbcnt IS NOT INITIAL.
+      MESSAGE 'Bu dönem için önceden istatistiksel gösterge belgeleri kaydedildi!!!' TYPE 'S' DISPLAY LIKE 'E'.
+      LEAVE LIST-PROCESSING.
     ENDIF.
 
     me->excel_upload(
@@ -253,8 +291,6 @@ CLASS lcl_main IMPLEMENTATION.
       MESSAGE e003(zco_206) RAISING contains_error.
     ENDIF.
 
-
-
   ENDMETHOD.
 
   METHOD save.
@@ -270,8 +306,18 @@ CLASS lcl_main IMPLEMENTATION.
 
     DATA day_in            TYPE sy-datum.
     DATA last_day_of_month TYPE sy-datum.
-    DATA ls_date TYPE sy-datum.
-    DATA ls_log TYPE zco_t_r016.
+    DATA ls_date           TYPE sy-datum.
+    DATA ls_log            TYPE zco_t_r016.
+    DATA ls_name           TYPE char50.
+
+    SELECT COUNT(*) FROM zco_t_r016
+      WHERE poper EQ p_poper
+        AND gjahr EQ p_gjahr
+        AND ters_kayit EQ space.
+    IF sy-dbcnt IS NOT INITIAL.
+      MESSAGE 'Bu dönem için önceden istatistiksel gösterge belgeleri kaydedildi!!!' TYPE 'S' DISPLAY LIKE 'E'.
+      EXIT.
+    ENDIF.
 
     CONCATENATE  p_gjahr p_poper+01(02) '01' INTO ls_date.
 
@@ -281,15 +327,20 @@ CLASS lcl_main IMPLEMENTATION.
       IMPORTING
         last_day_of_month = ls_header-postgdate.
 
+    CONCATENATE 'BMC POWER'
+                 p_poper+01(02) '/' p_gjahr
+                'Timesheet girişleri'
+                INTO ls_name SEPARATED BY space.
+
     ls_header-co_area = 'BM00'.
-    ls_header-doc_hdr_tx = 'BMC POWER ‘Çalıştırılan Ay/Yıl değeri’ Timesheet girişleri'.
+    ls_header-doc_hdr_tx = ls_name.
     ls_header-username = sy-uname.
 
     LOOP AT gt_report REFERENCE INTO DATA(lr_report).
 
       ls_items-rec_wbs_el = lr_report->posid.
       ls_items-stat_qty = lr_report->yuzde.
-      ls_items-statkeyfig = sy-uzeit.
+      ls_items-statkeyfig = 'TIME'.
 
       APPEND ls_items TO lt_items.
 
@@ -305,16 +356,11 @@ CLASS lcl_main IMPLEMENTATION.
         return     = lt_return.
 
     LOOP AT lt_return  INTO ls_return WHERE type CA 'EAX'.
-     MOVE-CORRESPONDING ls_return to  gs_message .
-     APPEND gs_message TO gt_message.
+      EXIT.
     ENDLOOP.
-
     IF sy-subrc IS INITIAL.
-
       CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
-
     ELSE.
-
       CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
         EXPORTING
           wait = 'X'.
@@ -325,8 +371,80 @@ CLASS lcl_main IMPLEMENTATION.
       MODIFY zco_t_r016 FROM ls_log.
       COMMIT WORK AND WAIT.
     ENDIF.
+    LOOP AT lt_return  INTO ls_return.
+      MOVE-CORRESPONDING ls_return TO  gs_message .
+      APPEND gs_message TO gt_message.
+    ENDLOOP.
 
   ENDMETHOD.
+  METHOD reverse.
+
+    DATA: ls_header TYPE bapidochdrr,
+          lt_docno  TYPE TABLE OF bapidochdrr,
+          ls_docno  TYPE bapidochdrr,
+          lt_update TYPE TABLE OF zco_t_r016,
+          ls_update TYPE zco_t_r016,
+          lt_return TYPE TABLE OF bapiret2,
+          ls_return TYPE bapiret2,
+          ls_date   TYPE sy-datum.
+
+    SELECT SINGLE * FROM zco_t_r016 INTO @DATA(ls_log)
+     WHERE poper EQ @p_poper
+       AND gjahr EQ @p_gjahr
+       AND ters_kayit EQ @space.
+    IF  sy-subrc IS INITIAL.
+      CLEAR: ls_header, lt_return.
+      CONCATENATE  p_gjahr p_poper+01(02) '01' INTO ls_date.
+      CALL FUNCTION 'RP_LAST_DAY_OF_MONTHS'
+        EXPORTING
+          day_in            = ls_date
+        IMPORTING
+          last_day_of_month = ls_header-postgdate.
+
+      ls_header-rvrs_no = ls_log-belnr.
+      ls_header-doc_hdr_tx = |{ ls_log-belnr } { 'Ters Kayıt' }|.
+      ls_header-username = sy-uname.
+      ls_header-co_area = 'BM00'.
+
+      FREE: lt_docno.
+      CALL FUNCTION 'BAPI_ACC_ACT_POSTINGS_REVERSE'
+        EXPORTING
+          doc_header = ls_header
+        TABLES
+          doc_no     = lt_docno
+          return     = gt_message.
+      LOOP AT gt_message INTO gs_message WHERE type CA 'AEX'.
+        EXIT.
+      ENDLOOP.
+      IF sy-subrc IS INITIAL.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+      ELSE.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            wait = 'X'.
+        READ TABLE lt_docno INTO ls_docno
+                            WITH KEY obj_key_r = ls_log-belnr.
+        IF sy-subrc IS INITIAL.
+          UPDATE zco_t_r016
+            SET ters_kayit = ls_docno-doc_no
+              WHERE poper = ls_log-poper AND
+                    gjahr = ls_log-gjahr AND
+                    belnr = ls_docno-doc_no.
+          COMMIT WORK AND WAIT.
+        ENDIF.
+      ENDIF.
+    ELSE.
+      MESSAGE 'Ters kayıt için uygun veri bulunamadı!' TYPE 'S' DISPLAY LIKE 'E'.
+      LEAVE LIST-PROCESSING.
+    ENDIF.
+    IF gt_message[] IS NOT INITIAL.
+      CALL FUNCTION 'FINB_BAPIRET2_DISPLAY'
+        EXPORTING
+          it_message = gt_message.
+    ENDIF.
+
+  ENDMETHOD.
+
 
 ENDCLASS.
 
@@ -338,15 +456,14 @@ CLASS lcl_event_receiver IMPLEMENTATION.
       WHEN '&IC1' OR '&ETA'.
 
       WHEN 'SAVE'.
+        CLEAR: gt_message.
         lcl_main=>save( ).
-
+        IF gt_message[] IS NOT INITIAL.
+          CALL FUNCTION 'FINB_BAPIRET2_DISPLAY'
+            EXPORTING
+              it_message = gt_message.
+        ENDIF.
     ENDCASE.
-    IF gt_message[] IS NOT INITIAL.
-      CALL FUNCTION 'FINB_BAPIRET2_DISPLAY'
-        EXPORTING
-          it_message = gt_message.
-    ENDIF.
-
   ENDMETHOD.
   METHOD handle_hotspot_click.
   ENDMETHOD.
@@ -364,6 +481,7 @@ CLASS lcl_event_receiver IMPLEMENTATION.
       ls_toolbar-text     = &3.
 
       APPEND ls_toolbar TO e_object->mt_toolbar.
+
 
     END-OF-DEFINITION.
 
@@ -395,4 +513,5 @@ CLASS lcl_event_receiver IMPLEMENTATION.
 
     ENDIF.
   ENDMETHOD.
+
 ENDCLASS.

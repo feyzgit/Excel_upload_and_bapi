@@ -27,10 +27,10 @@ DATA event_receiver     TYPE REF TO   lcl_event_receiver.
 DATA: gr_events    TYPE REF TO lcl_event_receiver.
 
 **Tables
-DATA: gt_report TYPE TABLE OF ZCO_S_R016,
-      it_row_no    TYPE lvc_t_roid.
+DATA: gt_report TYPE TABLE OF zco_s_r016,
+      it_row_no TYPE lvc_t_roid.
 
-data: gt_message TYPE TABLE OF bapiret2,
+DATA: gt_message TYPE TABLE OF bapiret2,
       gs_message TYPE bapiret2.
 *data: gt_log TYPE STANDARD TABLE OF ZCO_T_R016,
 *      gs_log TYPE ZCO_T_R016.
@@ -56,9 +56,10 @@ DATA: mt_exceldat TYPE tt_exceldat,
 
 SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME.
 
-PARAMETERS: p_file  TYPE rlgrap-filename OBLIGATORY,
-            p_poper TYPE poper,
-            p_gjahr TYPE gjahr.
+PARAMETERS: p_file  TYPE rlgrap-filename MODIF ID md1 ,
+            p_poper TYPE poper OBLIGATORY DEFAULT sy-datum+4(2),
+            p_gjahr TYPE gjahr OBLIGATORY DEFAULT sy-datum(4),
+            p_ch   AS CHECKBOX USER-COMMAND cm1.
 
 SELECTION-SCREEN END OF BLOCK b01.
 

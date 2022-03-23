@@ -37,6 +37,8 @@ CLASS lcl_event_receiver DEFINITION .
                   FOR EVENT data_changed OF cl_gui_alv_grid
       IMPORTING sender er_data_changed e_onf4 e_onf4_before
                   e_onf4_after e_ucomm.
+
+
 ENDCLASS.
 
 CLASS lcl_main DEFINITION.
@@ -44,6 +46,7 @@ CLASS lcl_main DEFINITION.
   PUBLIC SECTION.
 
     CLASS-METHODS :
+      at_selection_screen,
       get_file_path CHANGING ch_fname TYPE rlgrap-filename,
       start,
       free_data,
@@ -52,7 +55,8 @@ CLASS lcl_main DEFINITION.
       excel_upload IMPORTING  im_fname    TYPE rlgrap-filename
                    EXPORTING  ev_exceldat TYPE tt_exceldat
                    EXCEPTIONS contains_error,
-      save.
+      save,
+      reverse.
   PRIVATE SECTION.
     METHODS:
       get_data,
