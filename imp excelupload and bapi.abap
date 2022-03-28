@@ -429,7 +429,7 @@ CLASS lcl_main IMPLEMENTATION.
             SET ters_kayit = ls_docno-doc_no
               WHERE poper = ls_log-poper AND
                     gjahr = ls_log-gjahr AND
-                    belnr = ls_docno-doc_no.
+                    belnr = ls_docno-obj_key_r.
           COMMIT WORK AND WAIT.
         ENDIF.
       ENDIF.
